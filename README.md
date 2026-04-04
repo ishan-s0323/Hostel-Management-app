@@ -166,14 +166,4 @@ PORT=5000
 NODE_ENV=development
 ```
 
----
 
-## 🎨 Design System
-
-The UI is inspired by **Apple's Human Interface Guidelines**:
-- **Glassmorphism panels** with `backdrop-filter: blur`
-- **System font stack** falling back to Inter (Google Fonts)
-- **Auto Dark/Light mode** based on system preference (`prefers-color-scheme`)
-- **Subtle animations** (`fadeUp` transitions on page load)
-- **INR (₹) currency** formatting throughout
-- **iOS-style color palette** — accent blue `#007aff`, success green `#34c759`, danger red `#ff3b30`
