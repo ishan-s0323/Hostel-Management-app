@@ -1,0 +1,95 @@
+const express = require('express');
+const router = express.Router();
+const oracledb = require('oracledb');
+const db = require('../utils/db');
+const { rowsToCamel, rowToCamel } = require('../utils/helpers');
+const { authenticate, authorize } = require('../middleware/auth');
+
+router.use(authenticate);
+
+// GET /fees
+router.get('/', async (req, res) => {
+  try {
+    const { studentId, status } = req.query;
+    let sql = `SELECT f.*, s.name AS student_name FROM fees f
+               JOIN student s ON f.student_id = s.student_id WHERE 1=1`;
+    const binds = {};
+    if (req.user.userType === 'student') {
+      sql += ` AND f.student_id = :sid`; binds.sid = req.user.id;
+    } else if (studentId) {
+      sql += ` AND f.student_id = :sid`; binds.sid = Number(studentId);
+    }
+    if (status) { sql += ` AND f.status = :st`; binds.st = status; }
+    sql += ` ORDER BY f.due_date DESC`;
+
+    const result = await db.execute(sql, binds);
+    res.json(rowsToCamel(result.rows));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /fees/summary
+router.get('/summary', async (req, res) => {
+  try {
+    const result = await db.execute(
+      `SELECT NVL(SUM(amount),0) AS total, NVL(SUM(CASE WHEN status='paid' THEN amount ELSE 0 END),0) AS collected,
+       NVL(SUM(CASE WHEN status IN ('pending','overdue') THEN amount ELSE 0 END),0) AS outstanding,
+       COUNT(CASE WHEN status='overdue' THEN 1 END) AS overdue_count FROM fees`
+    );
+    res.json(rowToCamel(result.rows[0]));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /fees
+router.post('/', authorize('admin', 'superadmin'), async (req, res) => {
+  try {
+    const { studentId, amount, dueDate, feeType } = req.body;
+    const result = await db.execute(
+      `INSERT INTO fees (student_id, amount, due_date, fee_type) VALUES (:sid, :amt, TO_DATE(:dd,'YYYY-MM-DD'), :ft)
+       RETURNING fee_id INTO :id`,
+      { sid: studentId, amt: amount, dd: dueDate, ft: feeType,
+        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+    );
+    res.status(201).json({ id: result.outBinds.id[0], message: 'Fee created' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /fees/:id/pay
+router.post('/:id/pay', async (req, res) => {
+  try {
+    const { amountPaid, paymentMethod, transactionReference } = req.body;
+    const fee = await db.execute('SELECT * FROM fees WHERE fee_id = :id', { id: req.params.id });
+    if (!fee.rows.length) return res.status(404).json({ error: 'Fee not found' });
+
+    const result = await db.execute(
+      `INSERT INTO payments (fee_id, student_id, amount_paid, payment_method, transaction_reference, payment_status)
+       VALUES (:fid, :sid, :amt, :pm, :tr, 'completed') RETURNING payment_id INTO :id`,
+      { fid: req.params.id, sid: fee.rows[0].STUDENT_ID, amt: amountPaid, pm: paymentMethod || 'cash',
+        tr: transactionReference || null,
+        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+    );
+    res.json({ paymentId: result.outBinds.id[0], message: 'Payment recorded' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /fees/mark-overdue
+router.post('/mark-overdue', authorize('admin', 'superadmin'), async (req, res) => {
+  try {
+    const result = await db.execute(
+      `BEGIN sp_mark_overdue_fees(:cnt); END;`,
+      { cnt: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+    );
+    res.json({ markedCount: result.outBinds.cnt, message: 'Overdue fees marked' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
