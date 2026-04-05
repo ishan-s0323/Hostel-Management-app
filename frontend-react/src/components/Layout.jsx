@@ -19,6 +19,7 @@ const adminLinks = [
   { to: '/feedback', label: 'Feedback', icon: '💬' },
   { to: '/laundry', label: 'Laundry', icon: '🧺' },
   { to: '/leaves', label: 'Room Requests', icon: '📋' },
+  { to: '/biometric', label: 'Biometric', icon: '🔐' },
   { to: '/emergency', label: 'Emergency', icon: '🚨' },
 ];
 
@@ -29,11 +30,13 @@ const studentLinks = [
   { to: '/complaints', label: 'Complaints', icon: '⚠️' },
   { to: '/inquiries', label: 'Inquiries', icon: '🔍' },
   { to: '/parcels', label: 'Parcels', icon: '📦' },
+  { to: '/visitors', label: 'Visitors', icon: '🧑‍🤝‍🧑' },
   { to: '/lost-found', label: 'Lost & Found', icon: '📍' },
   { to: '/roommates', label: 'Roommates', icon: '🤝' },
   { to: '/feedback', label: 'Feedback', icon: '💬' },
   { to: '/laundry', label: 'Laundry', icon: '🧺' },
   { to: '/leaves', label: 'Room Change', icon: '📋' },
+  { to: '/biometric', label: 'Biometric', icon: '🔐' },
   { to: '/emergency', label: 'Emergency', icon: '🚨' },
 ];
 

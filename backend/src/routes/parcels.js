@@ -31,13 +31,13 @@ router.post('/', async (req, res) => {
     const { studentId, courierCompany, referenceNumber, pickupDeadline, weightCategory } = req.body;
     const result = await db.execute(
       `INSERT INTO parcels (student_id, courier_company, reference_number, pickup_deadline, weight_category, received_by)
-       VALUES (:sid, :cc, :rn, TO_DATE(:pd,'YYYY-MM-DD'), :wc, :rb) RETURNING parcel_id INTO :id`,
-      { sid: studentId, cc: courierCompany || null, rn: referenceNumber || null,
+       VALUES (:sid, :cc, :refnum, TO_DATE(:pd,'YYYY-MM-DD'), :wc, :rb) RETURNING parcel_id INTO :oid`,
+      { sid: studentId, cc: courierCompany || null, refnum: referenceNumber || null,
         pd: pickupDeadline || null, wc: weightCategory || null,
         rb: req.user.userType !== 'student' ? req.user.id : null,
-        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+        oid: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
-    res.status(201).json({ id: result.outBinds.id[0], message: 'Parcel registered' });
+    res.status(201).json({ id: result.outBinds.oid[0], message: 'Parcel registered' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

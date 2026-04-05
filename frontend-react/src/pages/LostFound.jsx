@@ -34,9 +34,9 @@ export default function LostFound() {
 
   const markFound = async (id) => {
     try {
-      await api.put(`/lostfound/claim/${id}`, { verificationStatus: 'verified' });
+      await api.put(`/lostfound/lost/${id}/status`, { status: 'claimed' });
       load();
-    } catch (e) { alert(e.error || 'Failed'); }
+    } catch (e) { alert(e.error || 'Failed to update'); }
   };
 
   if (loading) return <div className="fade-in">Loading…</div>;
@@ -80,6 +80,9 @@ export default function LostFound() {
                       >
                         Mark Found
                       </button>
+                    )}
+                    {item.status === 'claimed' && (
+                      <span style={{ color: 'var(--success)', fontSize: '13px' }}>✓ Claimed</span>
                     )}
                   </td>
                 )}

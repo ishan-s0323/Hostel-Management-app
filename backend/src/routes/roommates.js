@@ -18,7 +18,7 @@ router.get('/preference', async (req, res) => {
   }
 });
 
-// POST /roommates/preference (upsert)
+// POST /roommates/preference (upsert + auto-calculate compatibility)
 router.post('/preference', async (req, res) => {
   try {
     const { sleepSchedule, studyHabit, neatnessLevel } = req.body;
@@ -30,14 +30,28 @@ router.post('/preference', async (req, res) => {
         `UPDATE roommate_preference SET sleep_schedule = :ss, study_habit = :sh, neatness_level = :nl WHERE student_id = :sid`,
         { ss: sleepSchedule, sh: studyHabit, nl: neatnessLevel, sid }
       );
-      res.json({ message: 'Preference updated' });
     } else {
       await db.execute(
         `INSERT INTO roommate_preference (student_id, sleep_schedule, study_habit, neatness_level) VALUES (:sid, :ss, :sh, :nl)`,
         { sid, ss: sleepSchedule, sh: studyHabit, nl: neatnessLevel }
       );
-      res.status(201).json({ message: 'Preference saved' });
     }
+
+    // Auto-calculate compatibility with ALL other students who have preferences
+    const others = await db.execute(
+      `SELECT student_id FROM roommate_preference WHERE student_id != :sid`, { sid }
+    );
+    for (const row of others.rows) {
+      const otherId = row[0] || row.STUDENT_ID;
+      try {
+        await db.execute(
+          `BEGIN sp_calc_compatibility(:s1, :s2, :pct); END;`,
+          { s1: sid, s2: otherId, pct: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+        );
+      } catch (e) { /* skip if already exists */ }
+    }
+
+    res.json({ message: existing.rows.length ? 'Preference updated' : 'Preference saved' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -68,8 +82,8 @@ router.get('/compatibility', async (req, res) => {
                JOIN student s2 ON rc.student2_id = s2.student_id WHERE 1=1`;
     const binds = {};
     if (req.user.userType === 'student') {
-      sql += ` AND (rc.student1_id = :sid OR rc.student2_id = :sid2)`;
-      binds.sid = req.user.id; binds.sid2 = req.user.id;
+      sql += ` AND (rc.student1_id = :studentid1 OR rc.student2_id = :studentid2)`;
+      binds.studentid1 = req.user.id; binds.studentid2 = req.user.id;
     }
     sql += ` ORDER BY rc.compatibility_percentage DESC`;
     const result = await db.execute(sql, binds);

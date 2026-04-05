@@ -27,10 +27,10 @@ router.post('/lost', async (req, res) => {
     const { itemName, description } = req.body;
     const sid = req.user.userType === 'student' ? req.user.id : req.body.studentId;
     const result = await db.execute(
-      `INSERT INTO lost_items (student_id, item_name, description) VALUES (:sid, :in, :desc) RETURNING lost_id INTO :id`,
-      { sid, in: itemName, desc: description || null, id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+      `INSERT INTO lost_items (student_id, item_name, description) VALUES (:sid, :iname, :idesc) RETURNING lost_id INTO :oid`,
+      { sid, iname: itemName, idesc: description || null, oid: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
-    res.status(201).json({ id: result.outBinds.id[0], message: 'Lost item reported' });
+    res.status(201).json({ id: result.outBinds.oid[0], message: 'Lost item reported' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -55,11 +55,11 @@ router.post('/found', async (req, res) => {
     const { itemName, description, location } = req.body;
     const staffId = req.user.userType !== 'student' ? req.user.id : null;
     const result = await db.execute(
-      `INSERT INTO found_items (found_by_staff, item_name, description, location) VALUES (:sid, :in, :desc, :loc) RETURNING found_id INTO :id`,
-      { sid: staffId, in: itemName, desc: description || null, loc: location || null,
-        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+      `INSERT INTO found_items (found_by_staff, item_name, description, location) VALUES (:staffid, :iname, :idesc, :loc) RETURNING found_id INTO :oid`,
+      { staffid: staffId, iname: itemName, idesc: description || null, loc: location || null,
+        oid: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
-    res.status(201).json({ id: result.outBinds.id[0], message: 'Found item reported' });
+    res.status(201).json({ id: result.outBinds.oid[0], message: 'Found item reported' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -74,6 +74,18 @@ router.post('/claim', async (req, res) => {
       { lid: lostId || null, fid: foundId || null, id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
     res.status(201).json({ id: result.outBinds.id[0], message: 'Claim submitted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /lostfound/lost/:id/status - admin marks item as found
+router.put('/lost/:id/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    await db.execute('UPDATE lost_items SET status = :st WHERE lost_id = :id',
+      { st: status, id: req.params.id });
+    res.json({ message: 'Item status updated' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

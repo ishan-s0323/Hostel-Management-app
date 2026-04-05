@@ -25,17 +25,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /inquiries
-router.post('/', authorize('admin', 'superadmin', 'warden'), async (req, res) => {
+// POST /inquiries - admin creates for student, students can raise their own
+router.post('/', async (req, res) => {
   try {
-    const { studentId, description, disciplinaryOfficer } = req.body;
+    const { studentId, description, subject, disciplinaryOfficer } = req.body;
+    const targetStudentId = req.user.userType === 'student' ? req.user.id : studentId;
     const result = await db.execute(
       `INSERT INTO inquiry (student_id, description, disciplinary_officer)
-       VALUES (:sid, :desc, :off) RETURNING inquiry_id INTO :id`,
-      { sid: studentId, desc: description, off: disciplinaryOfficer || null,
-        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+       VALUES (:sid, :idesc, :offid) RETURNING inquiry_id INTO :oid`,
+      { sid: targetStudentId, idesc: description || subject || 'N/A', offid: disciplinaryOfficer || null,
+        oid: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
-    res.status(201).json({ id: result.outBinds.id[0], message: 'Inquiry created' });
+    res.status(201).json({ id: result.outBinds.oid[0], message: 'Inquiry created' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -47,7 +48,7 @@ router.put('/:id', authorize('admin', 'superadmin', 'warden'), async (req, res) 
     const { status, disciplinaryOfficer } = req.body;
     const fields = []; const binds = { id: req.params.id };
     if (status) { fields.push('status = :st'); binds.st = status; }
-    if (disciplinaryOfficer) { fields.push('disciplinary_officer = :off'); binds.off = disciplinaryOfficer; }
+    if (disciplinaryOfficer) { fields.push('disciplinary_officer = :offid'); binds.offid = disciplinaryOfficer; }
     if (!fields.length) return res.status(400).json({ error: 'No fields' });
     await db.execute(`UPDATE inquiry SET ${fields.join(', ')} WHERE inquiry_id = :id`, binds);
     res.json({ message: 'Inquiry updated' });

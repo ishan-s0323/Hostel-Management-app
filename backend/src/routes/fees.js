@@ -43,17 +43,20 @@ router.get('/summary', async (req, res) => {
   }
 });
 
-// POST /fees
-router.post('/', authorize('admin', 'superadmin'), async (req, res) => {
+// POST /fees - admin creates for any student, student creates advance for themselves
+router.post('/', async (req, res) => {
   try {
     const { studentId, amount, dueDate, feeType } = req.body;
+    // Students can only create fees for themselves
+    const targetStudentId = req.user.userType === 'student' ? req.user.id : studentId;
+    if (!targetStudentId) return res.status(400).json({ error: 'studentId required' });
     const result = await db.execute(
-      `INSERT INTO fees (student_id, amount, due_date, fee_type) VALUES (:sid, :amt, TO_DATE(:dd,'YYYY-MM-DD'), :ft)
-       RETURNING fee_id INTO :id`,
-      { sid: studentId, amt: amount, dd: dueDate, ft: feeType,
-        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+      `INSERT INTO fees (student_id, amount, due_date, fee_type) VALUES (:sid, :amt, TO_DATE(:dd,'YYYY-MM-DD'), :ftype)
+       RETURNING fee_id INTO :oid`,
+      { sid: targetStudentId, amt: amount, dd: dueDate, ftype: feeType,
+        oid: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
-    res.status(201).json({ id: result.outBinds.id[0], message: 'Fee created' });
+    res.status(201).json({ id: result.outBinds.oid[0], message: 'Fee created' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -62,18 +65,39 @@ router.post('/', authorize('admin', 'superadmin'), async (req, res) => {
 // POST /fees/:id/pay
 router.post('/:id/pay', async (req, res) => {
   try {
+    const feeId = Number(req.params.id);
     const { amountPaid, paymentMethod, transactionReference } = req.body;
-    const fee = await db.execute('SELECT * FROM fees WHERE fee_id = :id', { id: req.params.id });
-    if (!fee.rows.length) return res.status(404).json({ error: 'Fee not found' });
 
-    const result = await db.execute(
-      `INSERT INTO payments (fee_id, student_id, amount_paid, payment_method, transaction_reference, payment_status)
-       VALUES (:fid, :sid, :amt, :pm, :tr, 'completed') RETURNING payment_id INTO :id`,
-      { fid: req.params.id, sid: fee.rows[0].STUDENT_ID, amt: amountPaid, pm: paymentMethod || 'cash',
-        tr: transactionReference || null,
-        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+    const feeResult = await db.execute(
+      'SELECT fee_id, student_id, amount FROM fees WHERE fee_id = :fid',
+      { fid: feeId }
     );
-    res.json({ paymentId: result.outBinds.id[0], message: 'Payment recorded' });
+    if (!feeResult.rows.length) return res.status(404).json({ error: 'Fee not found' });
+
+    const feeRow = feeResult.rows[0];
+    const studentId = feeRow.STUDENT_ID || feeRow[1];
+
+    // Insert payment record
+    const payResult = await db.execute(
+      `INSERT INTO payments (fee_id, student_id, amount_paid, payment_method, transaction_reference, payment_status)
+       VALUES (:pfid, :psid, :pamt, :pmethod, :ptref, 'completed') RETURNING payment_id INTO :paid`,
+      {
+        pfid: feeId,
+        psid: studentId,
+        pamt: Number(amountPaid),
+        pmethod: paymentMethod || 'cash',
+        ptref: transactionReference || null,
+        paid: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+      }
+    );
+
+    // Also explicitly mark fee as paid (in case trigger doesn't fire)
+    await db.execute(
+      `UPDATE fees SET status = 'paid' WHERE fee_id = :fid`,
+      { fid: feeId }
+    );
+
+    res.json({ paymentId: payResult.outBinds.paid[0], message: 'Payment recorded successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

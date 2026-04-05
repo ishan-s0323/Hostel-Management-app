@@ -27,14 +27,16 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /allocations - allocate room using stored procedure
-router.post('/', authorize('admin', 'superadmin', 'warden'), async (req, res) => {
+// POST /allocations - allow students to request room, admins to allocate
+router.post('/', async (req, res) => {
   try {
     const { studentId, roomId } = req.body;
+    // Students can only apply for themselves
+    const targetStudentId = req.user.userType === 'student' ? req.user.id : Number(studentId);
     const result = await db.execute(
       `BEGIN sp_allocate_room(:sid, :rid, :success, :message, :allocId); END;`,
       {
-        sid: studentId, rid: roomId,
+        sid: targetStudentId, rid: Number(roomId),
         success: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
         message: { dir: oracledb.BIND_OUT, type: oracledb.STRING, maxSize: 500 },
         allocId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }

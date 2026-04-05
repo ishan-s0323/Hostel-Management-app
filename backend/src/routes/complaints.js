@@ -50,11 +50,11 @@ router.post('/', async (req, res) => {
 
     const result = await db.execute(
       `INSERT INTO room_complaints (room_id, student_id, description, reporter_name)
-       VALUES (:rid, :sid, :desc, :rn) RETURNING complaint_id INTO :id`,
-      { rid: roomId, sid: studentId, desc: description, rn: reporterName || null,
-        id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
+       VALUES (:rid, :sid, :cdesc, :rname) RETURNING complaint_id INTO :oid`,
+      { rid: roomId, sid: studentId, cdesc: description, rname: reporterName || null,
+        oid: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } }
     );
-    res.status(201).json({ id: result.outBinds.id[0], message: 'Complaint registered' });
+    res.status(201).json({ id: result.outBinds.oid[0], message: 'Complaint registered' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -12,6 +12,7 @@
   --success:   #34c759;
   --warning:   #ff9f0a;
   --radius:    12px;
+  --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -41,6 +42,10 @@ body {
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: box-shadow 0.3s ease;
+}
+.glass:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
 /* ---- Auth ---- */
@@ -55,23 +60,28 @@ body {
   width: 100%; padding: 12px 14px; margin-bottom: 14px;
   background: rgba(120,120,128,.12); border: none; border-radius: 10px;
   color: var(--text); font-size: 15px; font-family: inherit; outline: none;
-  transition: background .2s;
+  transition: background .2s, transform 0.15s;
 }
-.apple-input:focus { background: rgba(120,120,128,.2); }
+.apple-input:focus { background: rgba(120,120,128,.2); transform: scale(1.005); }
 .apple-input option { background: var(--bg); color: var(--text); }
 
 /* ---- Buttons ---- */
 .apple-btn {
   padding: 12px 20px; background: var(--accent); color: #fff;
   border: none; border-radius: 10px; font-size: 14px; font-weight: 600;
-  cursor: pointer; font-family: inherit; transition: opacity .15s;
+  cursor: pointer; font-family: inherit;
+  transition: opacity .15s, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
 }
-.apple-btn:hover { opacity: .88; }
+.apple-btn:hover { opacity: .88; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,122,255,.3); }
+.apple-btn:active { transform: scale(0.97) translateY(0); }
 .apple-btn.full { width: 100%; }
 .apple-btn.danger  { background: var(--danger); }
+.apple-btn.danger:hover { box-shadow: 0 4px 12px rgba(255,59,48,.3); }
 .apple-btn.success { background: var(--success); }
+.apple-btn.success:hover { box-shadow: 0 4px 12px rgba(52,199,89,.3); }
 .apple-btn.warning { background: var(--warning); }
 .apple-btn.ghost   { background: rgba(120,120,128,.12); color: var(--text); }
+.apple-btn.ghost:hover { background: rgba(120,120,128,.2); box-shadow: none; }
 
 /* ---- App Shell ---- */
 .app-layout { display: flex; height: 100vh; overflow: hidden; }
@@ -92,9 +102,9 @@ body {
 .nav-item {
   display: flex; align-items: center; gap: 10px; padding: 9px 12px;
   border-radius: 8px; color: var(--text); text-decoration: none; font-size: 14px;
-  margin-bottom: 2px; transition: background .15s;
+  margin-bottom: 2px; transition: background .15s, color .15s, transform .15s;
 }
-.nav-item:hover:not(.active) { background: rgba(120,120,128,.12); }
+.nav-item:hover:not(.active) { background: rgba(120,120,128,.12); transform: translateX(2px); }
 .nav-item.active { background: var(--accent); color: #fff; }
 .sidebar-footer { padding: 16px 14px; border-top: 1px solid var(--border); }
 
@@ -105,7 +115,8 @@ body {
 
 /* ---- Stat Grid ---- */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 16px; margin-bottom: 28px; }
-.stat-card { padding: 22px; border-radius: 14px; }
+.stat-card { padding: 22px; border-radius: 14px; transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: default; }
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.1); }
 .stat-card .label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
 .stat-card .value { font-size: 30px; font-weight: 600; }
 .stat-card .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
@@ -116,11 +127,16 @@ body {
 .table-glass thead th { padding: 12px 16px; color: var(--muted); font-size: 12px; font-weight: 600; text-align: left; border-bottom: 1px solid var(--border); }
 .table-glass tbody td { padding: 13px 16px; font-size: 14px; border-bottom: 1px solid var(--border); }
 .table-glass tbody tr:last-child td { border: none; }
+.table-glass tbody tr { transition: background 0.15s; }
 .table-glass tbody tr:hover { background: rgba(120,120,128,.06); }
 
 /* ---- Cards ---- */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 16px; }
-.room-card { padding: 20px; border-radius: 14px; }
+.room-card { 
+  padding: 20px; border-radius: 14px; 
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.room-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
 .room-card h3 { font-size: 16px; margin-bottom: 6px; }
 .room-card .meta { color: var(--muted); font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
 
@@ -128,8 +144,15 @@ body {
 .info-box { padding: 16px 20px; border-radius: var(--radius); background: rgba(0,122,255,.08); border: 1px solid rgba(0,122,255,.2); margin-bottom: 20px; font-size: 14px; line-height: 1.6; }
 
 /* ---- Animations ---- */
-.fade-in { animation: fadeUp .35s ease-out; }
+.fade-in { animation: fadeUp .3s cubic-bezier(0.4, 0, 0.2, 1); }
 @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+/* Modal overlay animation */
+@keyframes overlayIn { from{opacity:0} to{opacity:1} }
+@keyframes modalSlideIn { from{opacity:0;transform:translateY(24px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+
+/* Pulse for active visitors */
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
 
 /* ---- Utility ---- */
 .flex { display: flex; }

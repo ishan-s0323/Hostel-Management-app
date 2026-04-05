@@ -6,6 +6,8 @@ import Modal from '../components/Modal';
 export default function Fees() {
   const [fees, setFees] = useState([]);
   const [paying, setPaying] = useState(null);
+  const [showAdvance, setShowAdvance] = useState(false);
+  const [advanceForm, setAdvanceForm] = useState({ feeType: 'hostel_rent', amount: '' });
   const [loading, setLoading] = useState(true);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isStudent = user.role === 'student';
@@ -31,7 +33,44 @@ export default function Fees() {
       setPaying(null);
       load();
     } catch (e) {
-      alert(e.error || 'Payment failed');
+      alert(e.error || e.message || JSON.stringify(e) || 'Payment failed');
+    }
+  };
+
+  const handleAdvancePay = async () => {
+    if (!advanceForm.amount || Number(advanceForm.amount) <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+    try {
+      const dueDate = new Date();
+      dueDate.setMonth(dueDate.getMonth() + 1);
+      const dueDateStr = dueDate.toISOString().split('T')[0];
+
+      // Step 1: create fee record
+      const createRes = await api.post('/fees', {
+        amount: Number(advanceForm.amount),
+        dueDate: dueDateStr,
+        feeType: advanceForm.feeType
+      });
+
+      if (!createRes || !createRes.id) {
+        throw new Error('Fee creation failed — no ID returned');
+      }
+
+      // Step 2: immediately pay it
+      await api.post(`/fees/${createRes.id}/pay`, {
+        amountPaid: Number(advanceForm.amount),
+        paymentMethod: 'online'
+      });
+
+      alert(`Advance payment of ₹${Number(advanceForm.amount).toLocaleString('en-IN')} recorded successfully!`);
+      setShowAdvance(false);
+      setAdvanceForm({ feeType: 'hostel', amount: '' });
+      load();
+    } catch (e) {
+      const msg = e.error || e.message || (typeof e === 'string' ? e : JSON.stringify(e));
+      alert('Advance payment failed: ' + msg);
     }
   };
 
@@ -42,7 +81,14 @@ export default function Fees() {
 
   return (
     <div className="fade-in">
-      <h1 className="page-header">Fees</h1>
+      <div className="flex justify-between items-center mb-24">
+        <h1 className="page-header" style={{ margin: 0 }}>Fees</h1>
+        {isStudent && (
+          <button className="apple-btn ghost" onClick={() => setShowAdvance(true)}>
+            + Pay in Advance
+          </button>
+        )}
+      </div>
 
       {isStudent && pending.length > 0 && (
         <>
@@ -67,12 +113,12 @@ export default function Fees() {
 
       {isStudent && pending.length === 0 && (
         <div className="info-box mb-24" style={{ background: 'rgba(52,199,89,.1)', borderColor: 'rgba(52,199,89,.3)' }}>
-          ✅ All fees are paid. No dues pending.
+          ✅ All fees are paid. You can make an advance payment using the button above.
         </div>
       )}
 
       <h3 style={{ marginBottom: '16px' }}>
-        {isStudent ? 'Fee History' : 'All Fee Records'}
+        {isStudent ? 'Full Fee History' : 'All Fee Records'}
       </h3>
 
       <div className="glass table-wrap">
@@ -84,7 +130,7 @@ export default function Fees() {
               <th>Amount</th>
               <th>Due Date</th>
               <th>Status</th>
-              {!isStudent && <th>Action</th>}
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -95,15 +141,13 @@ export default function Fees() {
                 <td>{fmt(fee.amount)}</td>
                 <td>{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString('en-IN') : '—'}</td>
                 <td><Badge status={fee.status} /></td>
-                {!isStudent && (
-                  <td>
-                    {['pending', 'overdue'].includes(fee.status) && (
-                      <button className="apple-btn" style={{ padding: '6px 14px', fontSize: '12px' }} onClick={() => setPaying(fee)}>
-                        Mark Paid
-                      </button>
-                    )}
-                  </td>
-                )}
+                <td>
+                  {['pending', 'overdue'].includes(fee.status) && (
+                    <button className="apple-btn" style={{ padding: '6px 14px', fontSize: '12px' }} onClick={() => setPaying(fee)}>
+                      {isStudent ? 'Pay' : 'Mark Paid'}
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
             {fees.length === 0 && (
@@ -122,6 +166,36 @@ export default function Fees() {
           <div className="flex gap-12">
             <button className="apple-btn success" onClick={() => handlePay(paying)}>Confirm Payment</button>
             <button className="apple-btn ghost" onClick={() => setPaying(null)}>Cancel</button>
+          </div>
+        </Modal>
+      )}
+
+      {showAdvance && (
+        <Modal title="Pay in Advance" onClose={() => setShowAdvance(false)}>
+          <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '20px' }}>
+            Submit an advance payment. This will be recorded against your account.
+          </p>
+          <label style={{ color: 'var(--muted)', fontSize: '13px' }}>Fee Category</label>
+          <select className="apple-input" value={advanceForm.feeType} onChange={e => setAdvanceForm({ ...advanceForm, feeType: e.target.value })}>
+            <option value="hostel_rent">Hostel Rent</option>
+            <option value="mess">Mess Fee</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="security_deposit">Security Deposit</option>
+            <option value="laundry">Laundry</option>
+            <option value="other">Other</option>
+          </select>
+          <label style={{ color: 'var(--muted)', fontSize: '13px' }}>Amount (₹)</label>
+          <input
+            type="number"
+            className="apple-input"
+            placeholder="Enter amount"
+            value={advanceForm.amount}
+            onChange={e => setAdvanceForm({ ...advanceForm, amount: e.target.value })}
+            min="1"
+          />
+          <div className="flex gap-12" style={{ marginTop: '8px' }}>
+            <button className="apple-btn success" onClick={handleAdvancePay}>Pay Now</button>
+            <button className="apple-btn ghost" onClick={() => setShowAdvance(false)}>Cancel</button>
           </div>
         </Modal>
       )}

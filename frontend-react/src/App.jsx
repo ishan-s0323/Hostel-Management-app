@@ -14,6 +14,8 @@ import Laundry from './pages/Laundry';
 import Emergency from './pages/Emergency';
 import Allocations from './pages/Allocations';
 import Leaves from './pages/Leaves';
+import Visitors from './pages/Visitors';
+import Biometric from './pages/Biometric';
 import DataGrid from './components/DataGrid';
 
 function App() {
@@ -33,13 +35,14 @@ function App() {
           <Route path="complaints" element={<Complaints />} />
           <Route path="inquiries" element={<Inquiries />} />
           <Route path="parcels" element={<Parcels />} />
-          <Route path="visitors" element={<DataGrid title="Visitor Log" endpoint="/visitors" dataKey="visitors" />} />
+          <Route path="visitors" element={<Visitors />} />
           <Route path="lost-found" element={<LostFound />} />
           <Route path="roommates" element={<Roommates />} />
           <Route path="feedback" element={<Feedback />} />
           <Route path="laundry" element={<Laundry />} />
           <Route path="emergency" element={<Emergency />} />
           <Route path="leaves" element={<Leaves />} />
+          <Route path="biometric" element={<Biometric />} />
         </Route>
       </Routes>
     </BrowserRouter>
